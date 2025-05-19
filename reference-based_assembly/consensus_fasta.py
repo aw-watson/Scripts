@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+
 # By Jason Ladner
 
 #This version is for paired end data and will run cutadapt on the reads prior to aligning
@@ -22,10 +23,13 @@
 
 ###!!! Requires installations of samtools and bowtie2, both of which must reside within your $PATH
 
+# Modified by André Watson
+# updated to python 3.9, biopython 1.77
+
 
 from __future__ import division
 import sys, optparse, os, glob
-from subprocess import Popen, PIPE
+from subprocess import Popen, PIPE, run
 from Bio.Seq import Seq
 from Bio.Alphabet import generic_dna
 import numpy as np
@@ -130,14 +134,14 @@ def main():
             opts.ref=start_ref
             cols=line.strip().split('\t')
             opts.out=cols[0]
-            print cols[1]
+            print(cols[1])
             opts.paired1=','.join(sorted(glob.glob('%s*R1*' % cols[1])))
             opts.paired2=','.join(sorted(glob.glob('%s*R2*' % cols[1])))
             if opts.indexFilt:
                 opts.index1=','.join(sorted(glob.glob('%s*I1*' % cols[1])))
                 opts.index2=','.join(sorted(glob.glob('%s*I2*' % cols[1])))
             if len(cols)>2: opts.ref=cols[2]
-            print opts.paired1, opts.paired2, opts.ref
+            print(opts.paired1, opts.paired2, opts.ref)
             run_iteration(opts)
 
     #If you are running multiple bam files
@@ -151,7 +155,7 @@ def main():
                     opts.bam=bam_list[i]
                     opts.temp=None
                     run_iteration(opts)
-            else: print 'Must provide the same number of input files and output names!!!!'
+            else: print('Must provide the same number of input files and output names!!!!')
     
     #If you are running just one bam file or something else
     else: run_iteration(opts)
@@ -167,7 +171,7 @@ def make_sispa_str(seqs_comma):
 def concat_fastqs(fastq_str, newname):
     fastqs=fastq_str.split(',')
     cmd='zcat %s >%s' % (' '.join(fastqs), newname)
-    print cmd
+    print(cmd)
     concat=Popen(cmd, shell=True, stdout=PIPE, stderr=PIPE)
     concat.wait()
     return newname
@@ -393,20 +397,18 @@ def hard_clip(opts):
     #Clip the specified # bases from the beginning of R1
     out_name1 = '%s_trim%dbeg' % ('.'.join(opts.paired1.split('/')[-1].split('.')[:-1]), opts.hc)
     cmd='%s -fastq %s -out_good %s -out_bad null -trim_left %d' % (opts.ps, opts.paired1, out_name1, opts.hc)
-    print cmd
-    ps=Popen(cmd, shell=True, stdout=PIPE, stderr=PIPE)
-    ps.wait()
-    for line in ps.stderr:
-        print line.rstrip()
+    print(cmd)
+    ps = run(cmd, shell=True, capture_output=True)
+    for line in ps.stderr.decode():
+        print(line.rstrip())
     
     #Clip the specified # bases from the end of R2
     out_name2 = '%s_trim%dend' % ('.'.join(opts.paired2.split('/')[-1].split('.')[:-1]), opts.hc)
     cmd='%s -fastq %s -out_good %s -out_bad null -trim_right %d' % (opts.ps, opts.paired2, out_name2, opts.hc)
-    print cmd
-    ps=Popen(cmd, shell=True, stdout=PIPE, stderr=PIPE)
-    ps.wait()
-    for line in ps.stderr:
-        print line.rstrip()
+    print(cmd)
+    ps = run(cmd, shell=True, capture_output=True)
+    for line in ps.stderr.decode():
+        print(line.rstrip())
 
     return os.path.abspath("%s.fastq" % out_name1), os.path.abspath("%s.fastq" % out_name2)
 
@@ -428,11 +430,10 @@ def run_cutadapt(fastq, ill_adapt, opts):
     info_file_name =  '%s_ca_info.txt' % '.'.join(fastq.split('.')[:-1])
     if opts.sispa: cmd='%s -a illumina=%s %s -o %s -m %d --info-file %s --times 3 --match-read-wildcards %s --trim-n' % (opts.ca, ill_adapt, opts.sispa, out_name, opts.minLength, info_file_name , fastq)
     else: cmd='%s -a illumina=%s -o %s -m %d --info-file %s --times 3 --match-read-wildcards %s --trim-n' % (opts.ca, ill_adapt, out_name, opts.minLength, info_file_name , fastq)
-    print cmd
-    cutit=Popen(cmd, shell=True, stdout=PIPE, stderr=PIPE)
-    cutit.wait()
-    for line in cutit.stdout:
-        print line.rstrip()
+    print(cmd)
+    cutit=run(cmd, shell=True, capture_output=True)
+    for line in cutit.stdout.decode():
+        print(line.rstrip())
     return out_name, info_file_name
 
 ###-----Functions for removing random primers after running cutadapt with the sispa seqs
@@ -481,11 +482,10 @@ def make_info_dict(info_file):
 def paired_prinseq(opts):
     out_name = '%s_good' % '.'.join(opts.paired1.split('/')[-1].split('.')[:-1])
     cmd='%s -fastq %s -fastq2 %s -out_good %s -out_bad null -min_len %d -lc_method dust -lc_threshold 3 -derep 14 -trim_qual_right %d -trim_qual_type %s -trim_qual_window %d -min_qual_mean %d' % (opts.ps, opts.paired1, opts.paired2, out_name, opts.minLength, opts.trimQual, opts.trimType, opts.trimWin, opts.meanQual)
-    print cmd
-    ps=Popen(cmd, shell=True, stdout=PIPE, stderr=PIPE)
-    ps.wait()
-    for line in ps.stderr:
-        print line.rstrip()
+    print(cmd)
+    ps=run(cmd, shell=True, capture_output=True)
+    for line in ps.stderr.decode():
+        print(line.rstrip())
     
     #Deleting singleton files because they are not being used
     delete_files('%s_1_singletons.fastq' % out_name, '%s_2_singletons.fastq' % out_name)
@@ -551,7 +551,7 @@ def sam_to_bam(sam):
     sam_prefix='.'.join(sam.split('/')[-1].split('.')[:-1])
     bam_name='%s.bam' % sam_prefix
     cmd='samtools view -bS %s >%s' % (sam, bam_name)
-    print cmd
+    print(cmd)
     make_bam=Popen(cmd, shell=True, stdout=PIPE, stderr=PIPE)
     make_bam.wait()
     
@@ -559,7 +559,7 @@ def sam_to_bam(sam):
 def make_sort_bam_pileup(sam, ref, opts):
     #Make new faidx for current reference
     cmd='samtools faidx %s' % ref
-    print cmd
+    print(cmd)
     faidx=Popen(cmd, shell=True, stdout=PIPE, stderr=PIPE)
     faidx.wait()
     
@@ -567,7 +567,7 @@ def make_sort_bam_pileup(sam, ref, opts):
     sam_prefix='.'.join(sam.split('/')[-1].split('.')[:-1])
     bam_name='%s_sorted.bam' % sam_prefix
     cmd='samtools view -bS %s | samtools sort -m 800000000 - %s' % (sam, sam_prefix + '_sorted')
-    print cmd
+    print(cmd)
     make_bam=Popen(cmd, shell=True, stdout=PIPE, stderr=PIPE)
     make_bam.wait()
     
@@ -576,7 +576,7 @@ def make_sort_bam_pileup(sam, ref, opts):
     if not opts.NOpicard:
         dup_bam_name='%s_sorted_nodups.bam' % sam_prefix
         dup_cmd="java -XX:ParallelGCThreads=%s -jar %s MarkDuplicates REMOVE_DUPLICATES=true ASSUME_SORTED=true O=%s M=%s_metrics.txt I=%s" % (opts.procs, opts.pc, dup_bam_name, dup_bam_name, bam_name)
-        print dup_cmd
+        print(dup_cmd)
         rmdups=Popen(dup_cmd, shell=True, stdout=PIPE, stderr=PIPE)
         rmdups.wait()
         bam_name=dup_bam_name
@@ -587,7 +587,7 @@ def make_sort_bam_pileup(sam, ref, opts):
     pile_name='%s.pile' % sam_prefix
     if opts.useAnomPairs: cmd='samtools mpileup -f %s -q %d -d %d  -BA %s >%s' % (ref, opts.mapQ, opts.maxCov, bam_name, pile_name)
     else: cmd='samtools mpileup -f %s -q %d -d %d  -B %s >%s' % (ref, opts.mapQ, opts.maxCov, bam_name, pile_name)
-    print cmd
+    print(cmd)
     make_pileup=Popen(cmd, shell=True, stdout=PIPE, stderr=PIPE)
     make_pileup.wait()
     
@@ -598,7 +598,7 @@ def make_sort_bam_pileup(sam, ref, opts):
 def sort_bam_pileup(bam, ref, opts):
     #Make new faidx for current reference
     cmd='samtools faidx %s' % ref
-    print cmd
+    print(cmd)
     faidx=Popen(cmd, shell=True, stdout=PIPE, stderr=PIPE)
     faidx.wait()
     
@@ -606,7 +606,7 @@ def sort_bam_pileup(bam, ref, opts):
     bam_prefix='.'.join(bam.split('/')[-1].split('.')[:-1])
     bam_name='%s_sorted.bam' % bam_prefix
     cmd='samtools sort -m 800000000 %s %s' % (bam, bam_prefix + '_sorted')
-    print cmd
+    print(cmd)
     make_bam=Popen(cmd, shell=True, stdout=PIPE, stderr=PIPE)
     make_bam.wait()
     
@@ -615,7 +615,7 @@ def sort_bam_pileup(bam, ref, opts):
     if not opts.NOpicard:
         dup_bam_name='%s_sorted_nodups.bam' % bam_prefix
         dup_cmd="java -XX:ParallelGCThreads=%s -jar %s MarkDuplicates REMOVE_DUPLICATES=true ASSUME_SORTED=true O=%s M=%s_metrics.txt I=%s" % (opts.procs, opts.pc, dup_bam_name, dup_bam_name, bam_name)
-        print dup_cmd
+        print(dup_cmd)
         rmdups=Popen(dup_cmd, shell=True, stdout=PIPE, stderr=PIPE)
         rmdups.wait()
         bam_name = dup_bam_name
@@ -626,7 +626,7 @@ def sort_bam_pileup(bam, ref, opts):
     pile_name='%s.pile' % bam_prefix
     if opts.useAnomPairs: cmd='samtools mpileup -f %s -q %d -d %d -BA %s >%s' % (ref, opts.mapQ, opts.maxCov, bam_name, pile_name)
     else: cmd='samtools mpileup -f %s -q %d -d %d  -B %s >%s' % (ref, opts.mapQ, opts.maxCov, bam_name, pile_name)
-    print cmd
+    print(cmd)
     make_pileup=Popen(cmd, shell=True, stdout=PIPE, stderr=PIPE)
     make_pileup.wait()
     
@@ -678,7 +678,7 @@ def make_consensus(pileup, ref, opts):
     #Make a dictionary form the reference fasta
     ref_dict=read_fasta_dict_simple_names(ref)
     #Turn each seq into a list 
-    for name, seq in ref_dict.iteritems():
+    for name, seq in iter(ref_dict.items()):
         ref_dict[name]=list(seq)
     
     #Replace all 0 coverage bases (not included in the pileup) to Ns
@@ -754,7 +754,7 @@ def make_consensus(pileup, ref, opts):
                             break
     
     #Turn each seq into a string
-    for name, seq in ref_dict.iteritems():
+    for name, seq in iter(ref_dict.items()):
         ref_dict[name]=''.join(seq)
     
     #Write new consensus fasta file
@@ -770,15 +770,6 @@ def majority_alt(bases, opts):
     if bases.count('.') + bases.count(',')<opts.covThresh: return 'N'
     return False
     
-
-def quality_filter(bases, quals, opts):
-    new_bases=[]
-    new_quals=[]
-    for index in range(len(bases)):
-        if ord(quals[index])-opts.offset >= opts.baseQual:
-            new_bases.append(bases[index])
-            new_quals.append(quals[index])
-    return new_bases, new_quals
 
 
 def pileup_info(line):
@@ -806,8 +797,9 @@ def parse_bases(raw_bases, num_reads):
     
     if len(bases)==num_reads: return bases, indels, ends
     else:
-        print 'Problem!!! Exp bases: %d, Output bases: %d, Input str: %s, Output str: %s' % (num_reads, len(bases), raw_bases, bases)
-        return #This will cause script to stop because three arguments are expected to be returned	
+        print('Problem!!! Exp bases: %d, Output bases: %d, Input str: %s, Output str: %s' % (num_reads, len(bases), raw_bases, bases))
+        raise Exception('Problem!!! Exp bases: %d, Output bases: %d, Input str: %s, Output str: %s' % (num_reads, len(bases), raw_bases, bases))
+        #return #This will cause script to stop because three arguments are expected to be returned	
 
 def remove_beg_info(bases):
     while '^' in bases:
@@ -891,7 +883,7 @@ def bowtie2_index_align(ref, opts):
     
     #Make index for reference
     cmd='bowtie2-build %s ref_index' % (ref)
-    print cmd
+    print(cmd)
     os.popen(cmd)
     
     sam_name='%s_aligned.sam' % opts.out
@@ -899,22 +891,22 @@ def bowtie2_index_align(ref, opts):
     #Align unpaired reads
     if opts.unpaired and opts.paired1 and opts.paired2:
         cmd='bowtie2 -p %d --phred33 -N 1 --n-ceil %s -x ref_index -U %s -1 %s -2 %s -S %s' % (opts.procs, opts.nceil, opts.unpaired, opts.paired1, opts.paired2, sam_name)
-        print cmd
+        print(cmd)
         unpaired_bowtie=Popen(cmd, shell=True, stdout=PIPE, stderr=PIPE)
         unpaired_bowtie.wait()
     elif opts.unpaired:
         cmd='bowtie2 -p %d --phred33 -N 1 --n-ceil %s -x ref_index -U %s -S %s' % (opts.procs, opts.nceil, opts.unpaired, sam_name)
-        print cmd
+        print(cmd)
         unpaired_bowtie=Popen(cmd, shell=True, stdout=PIPE, stderr=PIPE)
         unpaired_bowtie.wait()
     #Align paired reads    
     elif opts.paired1 and opts.paired2:
         cmd='bowtie2 -p %d --phred33 -N 1 -I %d -X %d --n-ceil %s -x ref_index -1 %s -2 %s -S %s' % (opts.procs, opts.minIns, opts.maxIns, opts.nceil, opts.paired1, opts.paired2, sam_name)
-        print cmd
+        print(cmd)
         paired_bowtie=Popen(cmd, shell=True, stdout=PIPE, stderr=PIPE)
         paired_bowtie.wait()
     else: 
-        print 'Must provide at least 1) an unpaired .fastq file (-u) or 2) two paired end fastq files (-1 and -2)!!!!'
+        print('Must provide at least 1) an unpaired .fastq file (-u) or 2) two paired end fastq files (-1 and -2)!!!!')
         return
     
     return sam_name
