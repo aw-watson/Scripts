@@ -759,7 +759,7 @@ def make_consensus(pileup, ref, opts):
     
     #Write new consensus fasta file
     new_cons_name = 'new_consensus.fasta'
-    write_fasta(["%s_%s" % (opts.out ,x) for x in ref_dict.keys()], ref_dict.values(), new_cons_name)
+    write_fasta(["%s_%s" % (opts.out ,x) for x in ref_dict.keys()], list(ref_dict.values()), new_cons_name)
     
     return num_changes, new_cons_name
                         
