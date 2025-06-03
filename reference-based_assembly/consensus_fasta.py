@@ -294,7 +294,7 @@ def quality_filter(bases, quals, opts):
 def create_consensus(opts):
 
     #Create temporary working direcory and move to that directory
-    os.mkdir(opts.temp)
+    os.makedirs(opts.temp, exist_ok=True)
     os.chdir(opts.temp)
 
     if opts.Nbeg or opts.Nend:
