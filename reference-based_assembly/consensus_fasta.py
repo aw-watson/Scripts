@@ -666,7 +666,7 @@ def zero_to_Ns(ref_dict, pileup):
     fin.close()
 
     #Find missing bases and replace them with Ns
-    for chrom, base_list in ref_dict.iteritems():
+    for chrom, base_list in ref_dict.items():
         if chrom in pile_dict:
             missing_bases = set(range(1,len(base_list)+1))-set(pile_dict[chrom])
             for each in missing_bases: ref_dict[chrom][each-1]='N'
